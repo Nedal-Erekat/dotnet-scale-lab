@@ -1,0 +1,24 @@
+services:
+  web-api:
+    build: .
+    ports:
+      - "5000:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Database=ProductDb;Username=sa;Password=YourPassword123
+      - ConnectionStrings__Redis=redis:6337
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourPassword123
+    ports:
+      - "1433:1433"
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
