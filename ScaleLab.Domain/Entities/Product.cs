@@ -1,4 +1,4 @@
-namespace ScaleLab.Api.Models;
+namespace ScaleLab.Domain.Entities;
 
 public class Product
 {

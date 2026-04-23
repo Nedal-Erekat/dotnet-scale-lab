@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using ScaleLab.Api.Data;
+using Microsoft.Extensions.Caching.Distributed;
+using ScaleLab.Application.Services;
+using ScaleLab.Domain.Interfaces;
+using ScaleLab.Infrastructure.Caching;
+using ScaleLab.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +19,15 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
     options.InstanceName = "ScaleLab:";
 });
+
+// Decorator: CachedProductRepository wraps ProductRepository transparently
+builder.Services.AddScoped<ProductRepository>();
+builder.Services.AddScoped<IProductRepository>(sp =>
+    new CachedProductRepository(
+        sp.GetRequiredService<ProductRepository>(),
+        sp.GetRequiredService<IDistributedCache>()));
+
+builder.Services.AddScoped<ProductService>();
 
 var app = builder.Build();
 
@@ -34,9 +47,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 
     if (!db.Products.Any())
-    {
         new DataSeeder(db).Seed(100_000);
-    }
 }
 
 app.Run();

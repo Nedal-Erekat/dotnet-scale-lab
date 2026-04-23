@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using ScaleLab.Api.Models;
+using ScaleLab.Domain.Entities;
 
-namespace ScaleLab.Api.Data;
+namespace ScaleLab.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext
 {

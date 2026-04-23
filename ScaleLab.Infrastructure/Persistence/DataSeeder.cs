@@ -1,7 +1,7 @@
 using Bogus;
-using ScaleLab.Api.Models;
+using ScaleLab.Domain.Entities;
 
-namespace ScaleLab.Api.Data;
+namespace ScaleLab.Infrastructure.Persistence;
 
 public class DataSeeder
 {
@@ -25,10 +25,8 @@ public class DataSeeder
         for (int i = 0; i < total; i += batchSize)
         {
             int count = Math.Min(batchSize, total - i);
-            var products = faker.Generate(count);
-            _context.Products.AddRange(products);
+            _context.Products.AddRange(faker.Generate(count));
             _context.SaveChanges();
-            // Release all tracked entities after each batch to prevent heap growth
             _context.ChangeTracker.Clear();
         }
     }
