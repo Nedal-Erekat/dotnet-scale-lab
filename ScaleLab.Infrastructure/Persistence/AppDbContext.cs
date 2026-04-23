@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Category).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Price).HasPrecision(18, 2);
             entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.Name).HasDatabaseName("IX_Products_Name");
         });
     }
 }
