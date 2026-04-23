@@ -1,0 +1,148 @@
+# Learning Notes
+
+Personal notes on patterns and concepts encountered in this project. Add new sections as you learn.
+
+---
+
+## EF Core — Migrations vs EnsureCreated
+
+| | `Migrate()` | `EnsureCreated()` |
+|-|-------------|-------------------|
+| Requires migration files | Yes | No |
+| Tracks schema history | Yes | No |
+| Safe for incremental changes | Yes | No — drops and recreates |
+| Best for | Production / staging | Quick prototyping only |
+
+**Rule of thumb:** use `EnsureCreated()` when you just want the schema to exist and don't care about history. Switch to `Migrate()` once you start tracking changes over time.
+
+---
+
+## EF Core — Change Tracking and memory bloat
+
+EF Core tracks every entity it loads or inserts in memory (the "change tracker"). When seeding large datasets this causes the process heap to grow without bound.
+
+Two ways to clear tracked entities:
+
+```csharp
+// Option 1 — clear after each batch (EF Core 5+)
+context.ChangeTracker.Clear();
+
+// Option 2 — never track in the first place (read-only queries)
+context.Products.AsNoTracking().ToList();
+```
+
+In `DataSeeder.cs` we use `ChangeTracker.Clear()` after every `SaveChanges()` so memory stays flat across all 10 batches.
+
+---
+
+## EF Core — AsNoTracking for read queries
+
+```csharp
+context.Products
+    .AsNoTracking()   // skip the change tracker entirely
+    .OrderBy(p => p.Id)
+    .Skip((page - 1) * pageSize)
+    .Take(pageSize)
+    .ToListAsync();
+```
+
+Use `AsNoTracking()` on any query where you only need to read data and will not update/delete the returned entities. It is faster and uses less memory because EF Core skips building the identity map.
+
+---
+
+## EF Core — Precision on decimal columns
+
+Without explicit configuration, EF Core maps `decimal` to `decimal(18,2)` on SQL Server by default. You can make it explicit in `OnModelCreating`:
+
+```csharp
+entity.Property(e => e.Price).HasPrecision(18, 2);
+```
+
+This avoids a migration warning and makes the intent clear.
+
+---
+
+## Pagination pattern
+
+Standard offset-based pagination used in `ProductsController`:
+
+```csharp
+.Skip((page - 1) * pageSize)
+.Take(pageSize)
+```
+
+Response shape returns metadata alongside data so the client knows how many pages exist:
+
+```json
+{
+  "data": [...],
+  "page": 1,
+  "pageSize": 50,
+  "totalCount": 100000,
+  "totalPages": 2000
+}
+```
+
+**Limitation to revisit:** `COUNT(*)` on every request is expensive at scale. Options: cached count, keyset pagination, or approximate row count from SQL Server system tables.
+
+---
+
+## Bogus — generating realistic fake data
+
+```csharp
+var faker = new Faker<Product>()
+    .RuleFor(p => p.Name, f => f.Commerce.ProductName())
+    .RuleFor(p => p.Category, f => f.Commerce.Categories(1)[0])
+    .RuleFor(p => p.Price, f => Math.Round(f.Random.Decimal(0.99m, 9_999.99m), 2))
+    .RuleFor(p => p.CreatedAt, f => f.Date.Past(2));
+
+var products = faker.Generate(10_000);
+```
+
+Key namespaces in Bogus: `Commerce`, `Name`, `Internet`, `Address`, `Date`, `Random`, `Lorem`. Explore them in Swagger or intellisense to see what data each generates.
+
+---
+
+## Docker Compose — health checks and startup order
+
+`depends_on` alone only waits for a container to *start*, not to be *ready*. SQL Server takes ~15–30 seconds to initialise after the container starts. Without a health check the API will attempt to migrate before SQL Server is accepting connections.
+
+```yaml
+db:
+  healthcheck:
+    test: ["/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourPassword123' -Q 'SELECT 1' -b -C"]
+    interval: 10s
+    timeout: 5s
+    retries: 10
+    start_period: 30s   # grace period before health checks begin
+
+web-api:
+  depends_on:
+    db:
+      condition: service_healthy   # waits for the health check to pass
+```
+
+---
+
+## Docker Compose — connection strings for different environments
+
+The same setting is configured in two places:
+
+| File | Used when |
+|------|-----------|
+| `appsettings.json` | Running locally with `dotnet run` |
+| `docker-compose.yml` environment block | Running inside Docker |
+
+The environment variable `ConnectionStrings__DefaultConnection` (double underscore = section separator) overrides the `appsettings.json` value automatically via ASP.NET Core's configuration system.
+
+---
+
+## SQL Server — TrustServerCertificate
+
+SQL Server 2022 enforces encrypted connections by default and uses a self-signed certificate inside Docker. Without `TrustServerCertificate=True` in the connection string the client rejects the certificate and the connection fails.
+
+```
+Server=db,1433;Database=ProductDb;User Id=sa;Password=...;TrustServerCertificate=True
+```
+
+In production you would provide a real certificate instead of trusting blindly.
