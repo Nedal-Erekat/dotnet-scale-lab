@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Install .NET 9 SDK
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # 3. Restore NuGet packages for the entire solution
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # 4. Build in Release configuration — treats warnings as errors
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      # 5. Validate docker-compose.yml syntax and service definitions
+      - name: Validate docker-compose config
+        run: docker compose config --quiet
