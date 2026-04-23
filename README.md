@@ -2,6 +2,8 @@
 
 A self-directed lab for practising high-performance backend patterns in ASP.NET Core 9. Each iteration adds a new scalability technique on top of the same product catalogue domain.
 
+**Current iteration:** Clean Architecture + Cache-Aside Pattern with Redis (Decorator)
+
 ## Tech stack
 
 | Layer | Technology |
@@ -9,7 +11,7 @@ A self-directed lab for practising high-performance backend patterns in ASP.NET 
 | API | ASP.NET Core 9 — controller-based |
 | ORM | Entity Framework Core 9 |
 | Database | SQL Server 2022 |
-| Cache | Redis |
+| Cache | Redis via `IDistributedCache` + StackExchange.Redis |
 | Fake data | Bogus |
 | Container | Docker Compose |
 
@@ -17,18 +19,26 @@ A self-directed lab for practising high-performance backend patterns in ASP.NET 
 
 ```
 dotnet-scale-lab/
-├── ScaleLab.Api/
-│   └── ScaleLab.Api/
-│       ├── Controllers/        # API controllers
-│       ├── Data/               # DbContext, DataSeeder
-│       ├── Models/             # Domain models
-│       ├── Migrations/         # EF Core migrations (generated)
-│       ├── Program.cs
-│       └── appsettings.json
+├── ScaleLab.sln
+├── ScaleLab.Domain/                        ← no dependencies
+│   ├── Entities/Product.cs
+│   └── Interfaces/IProductRepository.cs
+├── ScaleLab.Application/                   ← depends on Domain
+│   ├── DTOs/PagedResult.cs
+│   └── Services/ProductService.cs
+├── ScaleLab.Infrastructure/                ← depends on Domain + Application
+│   ├── Caching/CachedProductRepository.cs
+│   └── Persistence/
+│       ├── AppDbContext.cs
+│       ├── DataSeeder.cs
+│       ├── Migrations/
+│       └── ProductRepository.cs
+├── ScaleLab.Presentation.Api/              ← depends on Application + Infrastructure
+│   ├── Controllers/ProductsController.cs
+│   ├── Program.cs
+│   └── appsettings.json
 ├── Dockerfile
-├── docker-compose.yml
-├── TROUBLESHOOTING.md
-└── NOTES.md
+└── docker-compose.yml
 ```
 
 ## Prerequisites
@@ -46,37 +56,30 @@ dotnet tool install --global dotnet-ef
 
 ## Getting started
 
-Run these steps in order. Skipping any one of them is the most common source of startup errors.
+Run these steps in order from the **repo root**. Skipping any one of them is the most common source of startup errors.
 
-**1. Navigate to the project directory**
-
-```bash
-cd ScaleLab.Api/ScaleLab.Api
-```
-
-**2. Restore NuGet packages**
+**1. Restore NuGet packages**
 
 ```bash
 dotnet restore
 ```
 
-**3. Create the initial migration**
+**2. Create the initial migration**
 
 ```bash
-dotnet ef migrations add InitialCreate
+dotnet ef migrations add InitialCreate \
+  --project ScaleLab.Infrastructure \
+  --startup-project ScaleLab.Presentation.Api
 ```
 
-**4. Start the full stack**
-
-From the repo root:
+**3. Start the full stack**
 
 ```bash
-cd ../..
 docker-compose up --build
 ```
 
 On first boot the API will:
-- Wait for SQL Server to pass its health check
+- Wait for SQL Server and Redis to pass their health checks
 - Apply pending migrations automatically
 - Seed 100,000 products in batches of 10,000 (~30–60 seconds)
 
@@ -96,6 +99,21 @@ On first boot the API will:
 
 Example: `GET /api/products?page=3&pageSize=100`
 
+**Response shape:**
+
+```json
+{
+  "source": "Cache",
+  "data": [...],
+  "page": 3,
+  "pageSize": 100,
+  "totalCount": 100000,
+  "totalPages": 1000
+}
+```
+
+`source` is `"Database"` on first request and `"Cache"` for the next 5 minutes.
+
 ## Ports
 
 | Port | Service | Notes |
@@ -109,7 +127,6 @@ Example: `GET /api/products?page=3&pageSize=100`
 ## Connecting to SQL Server
 
 ```bash
-# Via running container
 docker exec -it dotnet-scale-lab-db-1 \
   /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourPassword123' -C
 ```
@@ -122,10 +139,12 @@ Or connect with Azure Data Studio / SSMS:
 
 ## Adding a new migration
 
-After changing a model, run from `ScaleLab.Api/ScaleLab.Api`:
+After changing a model, run from the repo root:
 
 ```bash
-dotnet ef migrations add <MigrationName>
+dotnet ef migrations add <MigrationName> \
+  --project ScaleLab.Infrastructure \
+  --startup-project ScaleLab.Presentation.Api
 ```
 
 The migration is picked up and applied automatically on the next API startup.
