@@ -4,6 +4,51 @@ Personal notes on patterns and concepts encountered in this project. Add new sec
 
 ---
 
+## Cache-Aside Pattern (Redis + IDistributedCache)
+
+The cache-aside pattern keeps the database as the source of truth while using Redis to serve repeat reads without hitting SQL Server.
+
+**Flow:**
+```
+Request → Check Redis
+              ├── HIT  → deserialize JSON → return { source: "Cache" }
+              └── MISS → query DB → serialize → write to Redis (TTL 5 min) → return { source: "Database" }
+```
+
+**Key registration in Program.cs:**
+```csharp
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "ScaleLab:";  // prefix all keys: "ScaleLab:products_page_1"
+});
+```
+
+**Injecting and using IDistributedCache:**
+```csharp
+// Check
+var cached = await _cache.GetStringAsync(cacheKey);
+
+// Write with expiry
+await _cache.SetStringAsync(key, JsonSerializer.Serialize(data), new DistributedCacheEntryOptions
+{
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+});
+```
+
+**Absolute vs Sliding expiry:**
+- `AbsoluteExpirationRelativeToNow` — expires after a fixed duration from when it was written, regardless of access. Guarantees data freshness.
+- `SlidingExpiration` — resets the timer on every access. Good for user sessions but can keep stale data alive indefinitely if the key is popular.
+
+**Why InstanceName matters:**
+`InstanceName = "ScaleLab:"` is prepended to every key automatically by the framework. Without it, key names are bare strings and can collide if multiple apps share the same Redis instance.
+
+**Connection string environments:**
+- `appsettings.json` → `localhost:6379` (running with `dotnet run`)
+- `docker-compose.yml` env var → `redis:6379` (Docker service name, overrides appsettings at runtime)
+
+---
+
 ## EF Core — Migrations vs EnsureCreated
 
 | | `Migrate()` | `EnsureCreated()` |
