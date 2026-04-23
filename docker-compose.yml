@@ -4,11 +4,14 @@ services:
     ports:
       - "5000:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=db;Database=ProductDb;Username=sa;Password=YourPassword123
-      - ConnectionStrings__Redis=redis:6337
+      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=ProductDb;User Id=sa;Password=YourPassword123;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+      - ASPNETCORE_ENVIRONMENT=Development
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -17,6 +20,12 @@ services:
       - MSSQL_SA_PASSWORD=YourPassword123
     ports:
       - "1433:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourPassword123' -Q 'SELECT 1' -b -C"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   redis:
     image: redis:latest
