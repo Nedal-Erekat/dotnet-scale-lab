@@ -25,4 +25,12 @@ public class ProductRepository : IProductRepository
 
         return (data, totalCount, "Database");
     }
+
+    public async Task<IReadOnlyList<Product>> SearchByNameAsync(string term)
+    {
+        return await _context.Products
+            .AsNoTracking()
+            .Where(p => p.Name.Contains(term))
+            .ToListAsync();
+    }
 }

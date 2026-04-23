@@ -34,4 +34,14 @@ public class ProductsController : ControllerBase
             totalPages = result.TotalPages
         });
     }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string q)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+            return BadRequest("Query parameter 'q' is required.");
+
+        var results = await _productService.SearchProductsAsync(q);
+        return Ok(results);
+    }
 }

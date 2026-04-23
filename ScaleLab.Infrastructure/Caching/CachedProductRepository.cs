@@ -46,5 +46,10 @@ public class CachedProductRepository : IProductRepository
         return (data, totalCount, source);
     }
 
+    // Search bypasses cache — random terms make caching ineffective and the
+    // point of this endpoint is to benchmark raw DB performance.
+    public Task<IReadOnlyList<Product>> SearchByNameAsync(string term)
+        => _inner.SearchByNameAsync(term);
+
     private record CachedPage(List<Product> Data, int TotalCount);
 }
