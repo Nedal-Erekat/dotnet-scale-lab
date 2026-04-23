@@ -4,6 +4,27 @@ Problems encountered during development, with root cause and fix. Add new entrie
 
 ---
 
+## [2026-04-23] API crashes — "There is already an object named 'Products' in the database"
+
+**Symptom**
+```
+Microsoft.Data.SqlClient.SqlException: There is already an object named 'Products' in the database.
+```
+Crash happens during `db.Database.Migrate()` on startup.
+
+**Root cause**
+The SQL Server Docker volume was created by a previous iteration that used `EnsureCreated()` instead of migrations. The `Products` table exists but there is no `__EFMigrationsHistory` table, so EF Core thinks the migration has never been applied and tries to create the table again.
+
+**Fix**
+Tear down the containers and delete the volumes, then rebuild:
+```bash
+docker-compose down -v
+docker-compose up --build
+```
+`-v` removes named volumes, wiping the old database so migrations can apply cleanly from scratch.
+
+---
+
 ## [2026-04-23] SQL Server port 1433 shows 502 in browser
 
 **Symptom**
