@@ -120,6 +120,7 @@ Migrations are applied automatically on startup via `db.Database.Migrate()`.
 | File | Purpose |
 |------|---------|
 | `NOTES.md` | Learning notes — patterns, concepts, gotchas |
+| `TESTING.md` | k6 load testing notes — concepts, benchmarks, indexing comparisons |
 | `TROUBLESHOOTING.md` | Errors encountered and their fixes |
 | `agent-instructions.md` | Step-by-step instructions for the Clean Architecture refactor |
 | `README.md` | Getting-started guide for running the project |

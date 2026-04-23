@@ -190,5 +190,6 @@ A green `✓` next to each threshold means the API passed. A red `✗` means a t
 
 ## Reference docs
 
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — errors encountered and their fixes
 - [NOTES.md](NOTES.md) — learning notes on patterns and concepts used in this project
+- [TESTING.md](TESTING.md) — k6 load testing notes, benchmark methodology, and SQL indexing comparisons
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — errors encountered and their fixes
