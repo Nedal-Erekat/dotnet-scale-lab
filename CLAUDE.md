@@ -134,3 +134,7 @@ Migrations are applied automatically on startup via `db.Database.Migrate()`.
 - Update `NOTES.md` when a new pattern or concept is introduced.
 - Update `TROUBLESHOOTING.md` when a new error and fix is encountered.
 - Keep responses concise. No trailing summaries of what was just done unless asked.
+- At the end of every change, provide a suggested commit message in this format:
+  ```
+  "<type>: <short description>"
+  ```
