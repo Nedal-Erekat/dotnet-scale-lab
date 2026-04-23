@@ -149,6 +149,45 @@ dotnet ef migrations add <MigrationName> \
 
 The migration is picked up and applied automatically on the next API startup.
 
+## Load testing with k6
+
+### 1. Install k6 (once per Codespace)
+
+```bash
+bash tests/install-k6.sh
+```
+
+### 2. Start the stack
+
+```bash
+docker-compose up --build
+```
+
+Wait until seeding finishes (~30–60 seconds) before running the test.
+
+### 3. Run the stress test
+
+**Local Docker:**
+```bash
+k6 run tests/stress-test.js
+```
+
+**GitHub Codespaces** (port is forwarded via HTTPS):
+```bash
+k6 run -e BASE_URL=https://<your-codespace>-5000.app.github.dev tests/stress-test.js
+```
+
+### 4. Reading the results
+
+k6 prints a live summary to the terminal. Key metrics to watch:
+
+| Metric | Threshold | Meaning |
+|--------|-----------|---------|
+| `http_req_duration p(95)` | < 500 ms | 95% of requests complete within 500 ms |
+| `http_req_failed rate` | < 1% | Fewer than 1% of requests error |
+
+A green `✓` next to each threshold means the API passed. A red `✗` means a threshold was breached — check the `http_req_duration` histogram and `http_req_failed` count for clues.
+
 ## Reference docs
 
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — errors encountered and their fixes
