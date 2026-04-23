@@ -30,7 +30,9 @@ public class ProductRepository : IProductRepository
     {
         return await _context.Products
             .AsNoTracking()
-            .Where(p => p.Name.Contains(term))
+            .Where(p => p.Name.StartsWith(term))
+            .OrderBy(p => p.Name)
+            .Take(20)
             .ToListAsync();
     }
 }
