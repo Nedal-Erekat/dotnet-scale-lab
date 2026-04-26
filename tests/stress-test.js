@@ -25,8 +25,11 @@ export default function () {
   const res = http.get(`${BASE_URL}/api/products?page=1&pageSize=50`);
 
   check(res, {
-    'status is 200': (r) => r.status === 200,
+    'status is 200':      (r) => r.status === 200,
+    'served-by present':  (r) => r.headers['X-Served-By'] !== undefined,
   });
+
+  console.log(`served by: ${res.headers['X-Served-By'] || 'unknown'}`);
 
   sleep(1);
 }
