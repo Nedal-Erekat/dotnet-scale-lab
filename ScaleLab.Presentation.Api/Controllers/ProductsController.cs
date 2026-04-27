@@ -22,6 +22,8 @@ public class ProductsController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
+        Response.Headers["X-Served-By"] = Environment.MachineName;
+
         var result = await _productService.GetProductsAsync(page, pageSize);
 
         return Ok(new
@@ -40,6 +42,8 @@ public class ProductsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(q))
             return BadRequest("Query parameter 'q' is required.");
+
+        Response.Headers["X-Served-By"] = Environment.MachineName;
 
         var results = await _productService.SearchProductsAsync(q);
         return Ok(results);
