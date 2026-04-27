@@ -6,7 +6,7 @@ interface Props {
   query?: string
 }
 
-function pageHref(page: number, query?: string) {
+const pageHref = (page: number, query?: string) => {
   const params = new URLSearchParams()
   if (query) params.set('q', query)
   if (page > 1) params.set('page', String(page))
@@ -14,7 +14,7 @@ function pageHref(page: number, query?: string) {
   return qs ? `/?${qs}` : '/'
 }
 
-function buildPages(current: number, total: number): (number | '...')[] {
+const buildPages = (current: number, total: number): (number | '...')[] => {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const pages: (number | '...')[] = [1]
   if (current > 3) pages.push('...')
@@ -26,7 +26,7 @@ function buildPages(current: number, total: number): (number | '...')[] {
 
 const base = 'px-3 py-1.5 text-sm rounded-md border'
 
-export default function Pagination({ page, totalPages, query }: Props) {
+const Pagination = ({ page, totalPages, query }: Props) => {
   if (totalPages <= 1) return null
 
   return (
@@ -59,3 +59,5 @@ export default function Pagination({ page, totalPages, query }: Props) {
     </nav>
   )
 }
+
+export default Pagination

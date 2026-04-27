@@ -1,10 +1,10 @@
 'use client'
 import { useRouter } from 'next/navigation'
 
-export default function SearchInput({ defaultValue = '' }: { defaultValue?: string }) {
+const SearchInput = ({ defaultValue = '' }: { defaultValue?: string }) => {
   const router = useRouter()
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     const q = (new FormData(e.currentTarget).get('q') as string).trim()
     router.push(q ? `/?q=${encodeURIComponent(q)}` : '/')
@@ -27,3 +27,5 @@ export default function SearchInput({ defaultValue = '' }: { defaultValue?: stri
     </form>
   )
 }
+
+export default SearchInput

@@ -7,11 +7,11 @@ import Pagination from './_components/pagination'
 
 const PAGE_SIZE = 20
 
-export default async function ProductsPage({
+const ProductsPage = async ({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; page?: string }>
-}) {
+}) => {
   const { q, page: pageParam } = await searchParams
   const query = q?.trim() ?? ''
   const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1)
@@ -67,3 +67,5 @@ export default async function ProductsPage({
     </main>
   )
 }
+
+export default ProductsPage
