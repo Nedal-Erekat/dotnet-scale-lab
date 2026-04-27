@@ -13,6 +13,8 @@ services:
 
   frontend:
     build: ./scalelab-frontend
+    ports:
+      - "3000:3000"
     environment:
       - INTERNAL_API_URL=http://load-balancer
     depends_on:
