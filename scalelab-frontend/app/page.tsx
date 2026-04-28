@@ -1,9 +1,11 @@
 import Image from 'next/image'
 import { getProducts, searchProducts } from '@/lib/api'
+import { SearchProvider } from '@/lib/search-context'
 import ReplicaBadge from './_components/replica-badge'
 import ProductsGrid from './_components/products-grid'
 import SearchInput from './_components/search-input'
 import Pagination from './_components/pagination'
+import ResultsFade from './_components/results-fade'
 
 const PAGE_SIZE = 20
 
@@ -35,36 +37,40 @@ const ProductsPage = async ({
       }))
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Image src="/logo.svg" alt="ScaleLab" width={32} height={32} />
-          <h1 className="text-2xl font-bold">ScaleLab</h1>
+    <SearchProvider>
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.svg" alt="ScaleLab" width={32} height={32} />
+            <h1 className="text-2xl font-bold">ScaleLab</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <SearchInput defaultValue={query} />
+            <ReplicaBadge servedBy={servedBy} />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <SearchInput defaultValue={query} />
-          <ReplicaBadge servedBy={servedBy} />
-        </div>
-      </div>
 
-      <p className="text-sm text-gray-500 mb-6">
-        {isSearch ? (
-          <>
-            {totalCount} result{totalCount !== 1 ? 's' : ''} for{' '}
-            <span className="font-medium">&ldquo;{query}&rdquo;</span>
-          </>
-        ) : (
-          <>
-            {totalCount.toLocaleString()} products — source:{' '}
-            <span className="font-medium">{source}</span>
-          </>
-        )}
-      </p>
+        <ResultsFade>
+          <p className="text-sm text-gray-500 mb-6">
+            {isSearch ? (
+              <>
+                {totalCount} result{totalCount !== 1 ? 's' : ''} for{' '}
+                <span className="font-medium">&ldquo;{query}&rdquo;</span>
+              </>
+            ) : (
+              <>
+                {totalCount.toLocaleString()} products — source:{' '}
+                <span className="font-medium">{source}</span>
+              </>
+            )}
+          </p>
 
-      <ProductsGrid products={products} />
+          <ProductsGrid products={products} />
 
-      {!isSearch && <Pagination page={page} totalPages={totalPages} />}
-    </main>
+          {!isSearch && <Pagination page={page} totalPages={totalPages} />}
+        </ResultsFade>
+      </main>
+    </SearchProvider>
   )
 }
 

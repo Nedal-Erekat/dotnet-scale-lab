@@ -2,7 +2,7 @@
 
 A self-directed lab for practising high-performance backend patterns in ASP.NET Core 9. Each iteration adds a new scalability technique on top of the same product catalogue domain.
 
-**Current iteration:** Clean Architecture + Cache-Aside Pattern with Redis (Decorator)
+**Current iteration:** Nginx load balancer + 3 web-api replicas + Next.js 15 frontend
 
 ## Tech stack
 
@@ -12,8 +12,11 @@ A self-directed lab for practising high-performance backend patterns in ASP.NET 
 | ORM | Entity Framework Core 9 |
 | Database | SQL Server 2022 |
 | Cache | Redis via `IDistributedCache` + StackExchange.Redis |
+| Full-text search | SQL Server FTS + `EF.Functions.Contains` |
+| Load balancer | Nginx (round-robin across 3 replicas) |
+| Frontend | Next.js 15 (App Router, Server Components) |
 | Fake data | Bogus |
-| Container | Docker Compose |
+| Containers | Docker Compose |
 
 ## Project structure
 
@@ -37,6 +40,11 @@ dotnet-scale-lab/
 │   ├── Controllers/ProductsController.cs
 │   ├── Program.cs
 │   └── appsettings.json
+├── scalelab-frontend/                      ← Next.js 15 App Router
+│   ├── app/
+│   ├── lib/
+│   └── Dockerfile
+├── nginx.conf
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -56,7 +64,7 @@ dotnet tool install --global dotnet-ef
 
 ## Getting started
 
-Run these steps in order from the **repo root**. Skipping any one of them is the most common source of startup errors.
+Run these steps in order from the **repo root**.
 
 **1. Restore NuGet packages**
 
@@ -64,7 +72,7 @@ Run these steps in order from the **repo root**. Skipping any one of them is the
 dotnet restore
 ```
 
-**2. Create the initial migration**
+**2. Create the initial migration** *(skip if migrations already exist)*
 
 ```bash
 dotnet ef migrations add InitialCreate \
@@ -75,29 +83,42 @@ dotnet ef migrations add InitialCreate \
 **3. Start the full stack**
 
 ```bash
-docker-compose up --build
+docker-compose up --build --scale web-api=3
 ```
+
+> `--scale web-api=3` spins up 3 API replicas behind the Nginx load balancer.
+> Omitting it starts a single replica — everything still works, but there is no round-robin.
 
 On first boot the API will:
 - Wait for SQL Server and Redis to pass their health checks
 - Apply pending migrations automatically
 - Seed 100,000 products in batches of 10,000 (~30–60 seconds)
 
+## Ports
+
+| Port | Service | Notes |
+|------|---------|-------|
+| 3000 | Next.js frontend | Products UI |
+| 5000 | Nginx load balancer | API entry point — round-robins across web-api replicas |
+| 1433 | SQL Server | TDS protocol — not browsable |
+| 6379 | Redis | — |
+
+> In GitHub Codespaces, replace `localhost` with your forwarded hostname. Port 1433 will never open in a browser — use a SQL client instead.
+
 ## API endpoints
 
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/api/products` | Paginated product list |
-| GET | `/swagger` | Swagger UI (Development only) |
+| GET | `/api/products/search?q=` | Full-text search (name + description) |
+| GET | `/swagger` | Swagger UI — available at `http://localhost:5000/swagger` |
 
-**Pagination query parameters:**
+**Pagination parameters (`/api/products`):**
 
-| Parameter | Default | Max | Description |
-|-----------|---------|-----|-------------|
-| `page` | 1 | — | Page number (1-based) |
-| `pageSize` | 50 | 100 | Records per page |
-
-Example: `GET /api/products?page=3&pageSize=100`
+| Parameter | Default | Max |
+|-----------|---------|-----|
+| `page` | 1 | — |
+| `pageSize` | 50 | 100 |
 
 **Response shape:**
 
@@ -105,24 +126,15 @@ Example: `GET /api/products?page=3&pageSize=100`
 {
   "source": "Cache",
   "data": [...],
-  "page": 3,
-  "pageSize": 100,
+  "page": 1,
+  "pageSize": 50,
   "totalCount": 100000,
-  "totalPages": 1000
+  "totalPages": 2000
 }
 ```
 
 `source` is `"Database"` on first request and `"Cache"` for the next 5 minutes.
-
-## Ports
-
-| Port | Service | Notes |
-|------|---------|-------|
-| 5000 | ASP.NET Core API | HTTP |
-| 1433 | SQL Server | TDS protocol — not browsable |
-| 6379 | Redis | — |
-
-> In GitHub Codespaces, replace `localhost` with your forwarded hostname (e.g. `https://<name>-5000.app.github.dev`). Port 1433 will never open in a browser — use a SQL client instead.
+`X-Served-By` response header identifies which replica handled the request.
 
 ## Connecting to SQL Server
 
@@ -160,7 +172,7 @@ bash tests/install-k6.sh
 ### 2. Start the stack
 
 ```bash
-docker-compose up --build
+docker-compose up --build --scale web-api=3
 ```
 
 Wait until seeding finishes (~30–60 seconds) before running the test.
@@ -179,14 +191,10 @@ k6 run -e BASE_URL=https://<your-codespace>-5000.app.github.dev tests/stress-tes
 
 ### 4. Reading the results
 
-k6 prints a live summary to the terminal. Key metrics to watch:
-
 | Metric | Threshold | Meaning |
 |--------|-----------|---------|
 | `http_req_duration p(95)` | < 500 ms | 95% of requests complete within 500 ms |
 | `http_req_failed rate` | < 1% | Fewer than 1% of requests error |
-
-A green `✓` next to each threshold means the API passed. A red `✗` means a threshold was breached — check the `http_req_duration` histogram and `http_req_failed` count for clues.
 
 ## Reference docs
 
