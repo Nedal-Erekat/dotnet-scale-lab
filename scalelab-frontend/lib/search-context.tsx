@@ -12,7 +12,7 @@ const SearchContext = createContext<SearchContextValue>({ isPending: false, sear
 const SearchProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const search = useCallback(
     (q: string) => {
