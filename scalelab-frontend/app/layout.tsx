@@ -3,6 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'ScaleLab',
+  description: 'High-performance product catalogue — ASP.NET Core 9, Redis cache, and Nginx round-robin load balancing.',
   icons: { icon: '/logo.svg' },
 }
 

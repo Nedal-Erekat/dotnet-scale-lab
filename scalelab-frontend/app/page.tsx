@@ -1,13 +1,9 @@
 import Image from 'next/image'
-import { getProducts, searchProducts } from '@/lib/api'
+import { Suspense } from 'react'
 import { SearchProvider } from '@/lib/search-context'
-import ReplicaBadge from './_components/replica-badge'
-import ProductsGrid from './_components/products-grid'
 import SearchInput from './_components/search-input'
-import Pagination from './_components/pagination'
-import ResultsFade from './_components/results-fade'
-
-const PAGE_SIZE = 20
+import ProductsSection from './_components/products-section'
+import ProductsSkeleton from './_components/products-skeleton'
 
 const ProductsPage = async ({
   searchParams,
@@ -18,24 +14,6 @@ const ProductsPage = async ({
   const query = q?.trim() ?? ''
   const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1)
 
-  const isSearch = query.length > 0
-
-  const { products, servedBy, totalCount, totalPages, source } = isSearch
-    ? await searchProducts(query).then(({ results, servedBy }) => ({
-        products: results,
-        servedBy,
-        totalCount: results.length,
-        totalPages: 1,
-        source: 'Search',
-      }))
-    : await getProducts(page, PAGE_SIZE).then(({ result, servedBy }) => ({
-        products: result.data,
-        servedBy,
-        totalCount: result.totalCount,
-        totalPages: result.totalPages,
-        source: result.source,
-      }))
-
   return (
     <SearchProvider>
       <main className="max-w-6xl mx-auto px-4 py-8">
@@ -44,31 +22,12 @@ const ProductsPage = async ({
             <Image src="/logo.svg" alt="ScaleLab" width={32} height={32} />
             <h1 className="text-2xl font-bold">ScaleLab</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <SearchInput defaultValue={query} />
-            <ReplicaBadge servedBy={servedBy} />
-          </div>
+          <SearchInput defaultValue={query} />
         </div>
 
-        <ResultsFade>
-          <p className="text-sm text-gray-500 mb-6">
-            {isSearch ? (
-              <>
-                {totalCount} result{totalCount !== 1 ? 's' : ''} for{' '}
-                <span className="font-medium">&ldquo;{query}&rdquo;</span>
-              </>
-            ) : (
-              <>
-                {totalCount.toLocaleString()} products — source:{' '}
-                <span className="font-medium">{source}</span>
-              </>
-            )}
-          </p>
-
-          <ProductsGrid products={products} />
-
-          {!isSearch && <Pagination page={page} totalPages={totalPages} />}
-        </ResultsFade>
+        <Suspense fallback={<ProductsSkeleton />}>
+          <ProductsSection query={query} page={page} />
+        </Suspense>
       </main>
     </SearchProvider>
   )
