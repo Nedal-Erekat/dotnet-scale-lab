@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const p=require\\('./node_modules/next/package.json'\\); console.log\\('next:', p.version\\)\")",
+      "Bash(node -e \"const p=require\\('./node_modules/react/package.json'\\); console.log\\('react:', p.version\\)\")",
+      "Bash(node -e \"const p=require\\('./node_modules/tailwindcss/package.json'\\); console.log\\('tailwindcss:', p.version\\)\")",
+      "Bash(node -e \"const p=require\\('./node_modules/typescript/package.json'\\); console.log\\('typescript:', p.version\\)\")"
+    ]
+  }
+}
