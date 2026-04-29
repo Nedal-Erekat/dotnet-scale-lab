@@ -2,7 +2,7 @@
 
 A self-directed lab for practising high-performance backend patterns in ASP.NET Core 9. Each iteration adds a new scalability technique on top of the same product catalogue domain.
 
-**Current iteration:** Nginx load balancer + 3 web-api replicas + Next.js 15 frontend
+**Current iteration:** YARP gateway + 3 web-api replicas + Next.js 16 frontend
 
 ## Tech stack
 
@@ -13,8 +13,8 @@ A self-directed lab for practising high-performance backend patterns in ASP.NET 
 | Database | SQL Server 2022 |
 | Cache | Redis via `IDistributedCache` + StackExchange.Redis |
 | Full-text search | SQL Server FTS + `EF.Functions.Contains` |
-| Load balancer | Nginx (round-robin across 3 replicas) |
-| Frontend | Next.js 15 (App Router, Server Components) |
+| Gateway | YARP reverse proxy (`ScaleLab.Gateway`, ASP.NET Core 9) |
+| Frontend | Next.js 16 (App Router, Suspense streaming, Tailwind CSS v4) |
 | Fake data | Bogus |
 | Containers | Docker Compose |
 
@@ -40,11 +40,18 @@ dotnet-scale-lab/
 │   ├── Controllers/ProductsController.cs
 │   ├── Program.cs
 │   └── appsettings.json
-├── scalelab-frontend/                      ← Next.js 15 App Router
-│   ├── app/
-│   ├── lib/
+├── ScaleLab.Gateway/                       ← YARP reverse proxy (replaces Nginx)
+│   ├── Program.cs
+│   ├── appsettings.json
 │   └── Dockerfile
-├── nginx.conf
+├── scalelab-frontend/                      ← Next.js 16 App Router
+│   ├── app/
+│   │   ├── _components/                ← Server + Client Components
+│   │   ├── api/health/route.ts         ← health check endpoint
+│   │   ├── error.tsx / loading.tsx / not-found.tsx
+│   │   ├── layout.tsx / page.tsx
+│   ├── lib/                            ← api.ts, types.ts, search-context.tsx
+│   └── Dockerfile
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -83,11 +90,10 @@ dotnet ef migrations add InitialCreate \
 **3. Start the full stack**
 
 ```bash
-docker-compose up --build --scale web-api=3
+docker-compose up --build
 ```
 
-> `--scale web-api=3` spins up 3 API replicas behind the Nginx load balancer.
-> Omitting it starts a single replica — everything still works, but there is no round-robin.
+> `deploy.replicas: 3` in `docker-compose.yml` automatically starts 3 API replicas behind the YARP gateway — no extra flags needed.
 
 On first boot the API will:
 - Wait for SQL Server and Redis to pass their health checks
@@ -99,7 +105,7 @@ On first boot the API will:
 | Port | Service | Notes |
 |------|---------|-------|
 | 3000 | Next.js frontend | Products UI |
-| 5000 | Nginx load balancer | API entry point — round-robins across web-api replicas |
+| 5000 | YARP gateway | API entry point — round-robins across web-api replicas |
 | 1433 | SQL Server | TDS protocol — not browsable |
 | 6379 | Redis | — |
 
@@ -172,7 +178,7 @@ bash tests/install-k6.sh
 ### 2. Start the stack
 
 ```bash
-docker-compose up --build --scale web-api=3
+docker-compose up --build
 ```
 
 Wait until seeding finishes (~30–60 seconds) before running the test.
@@ -195,6 +201,17 @@ k6 run -e BASE_URL=https://<your-codespace>-5000.app.github.dev tests/stress-tes
 |--------|-----------|---------|
 | `http_req_duration p(95)` | < 500 ms | 95% of requests complete within 500 ms |
 | `http_req_failed rate` | < 1% | Fewer than 1% of requests error |
+
+## CI
+
+GitHub Actions runs on every push and pull request to `main`:
+
+| Job | Steps |
+|-----|-------|
+| `backend` | .NET restore → build (Release) → validate docker-compose config |
+| `frontend` | Node 22 install → type-check (`tsc --noEmit`) → `next build` |
+
+Both jobs run in parallel. A PR is only safe to merge when both pass.
 
 ## Reference docs
 

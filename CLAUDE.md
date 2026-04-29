@@ -10,7 +10,7 @@ It gives Claude the full project context so you never have to re-explain it.
 A self-directed lab for practising high-performance backend patterns in ASP.NET Core 9.
 The goal is to build on the same product-catalogue domain, adding one scalability technique per iteration.
 
-**Current iteration:** Clean Architecture + Cache-Aside Pattern with Redis (Decorator)
+**Current iteration:** YARP gateway + 3 web-api replicas + Next.js 16 frontend
 
 ---
 
@@ -22,6 +22,9 @@ The goal is to build on the same product-catalogue domain, adding one scalabilit
 | ORM | Entity Framework Core 9 |
 | Database | SQL Server 2022 |
 | Cache | Redis via `IDistributedCache` + StackExchange.Redis |
+| Full-text search | SQL Server FTS + `EF.Functions.Contains` |
+| Gateway | YARP reverse proxy (`ScaleLab.Gateway`, round-robin across 3 replicas) |
+| Frontend | Next.js 16 (App Router, Suspense streaming, Tailwind CSS v4) |
 | Fake data | Bogus |
 | Containers | Docker Compose |
 
@@ -49,6 +52,18 @@ dotnet-scale-lab/
 │   ├── Controllers/ProductsController.cs
 │   ├── Program.cs
 │   └── appsettings.json
+├── ScaleLab.Gateway/                       ← YARP reverse proxy (replaces Nginx)
+│   ├── Program.cs
+│   ├── appsettings.json
+│   └── Dockerfile
+├── scalelab-frontend/                      ← Next.js 16 App Router
+│   ├── app/
+│   │   ├── _components/                ← Server + Client Components
+│   │   ├── api/health/route.ts         ← health check
+│   │   ├── error.tsx / loading.tsx / not-found.tsx
+│   │   ├── layout.tsx / page.tsx
+│   ├── lib/                            ← api.ts, types.ts, search-context.tsx
+│   └── Dockerfile
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -56,6 +71,8 @@ dotnet-scale-lab/
 ---
 
 ## Established patterns and conventions
+
+**Backend (ASP.NET Core)**
 
 | Convention | Detail |
 |-----------|--------|
@@ -68,6 +85,16 @@ dotnet-scale-lab/
 | Cache keys | `products_page_{page}_size_{pageSize}`, prefixed `ScaleLab:` via `InstanceName` |
 | Cache TTL | 5-minute absolute expiry |
 | Serialization | `System.Text.Json` with `JsonNamingPolicy.CamelCase` |
+
+**Frontend (Next.js)**
+
+| Convention | Detail |
+|-----------|--------|
+| Components | Always arrow functions — `const Foo = () => ...` then `export default Foo` |
+| Client boundary | Push `'use client'` as deep as possible; keep data-fetching in Server Components |
+| Streaming | Data-fetching components are async Server Components wrapped in `<Suspense>` |
+| Error handling | `lib/api.ts` throws on non-ok responses; `error.tsx` catches them |
+| Env var | `INTERNAL_API_URL` — set to `http://gateway` in Docker, fallback `http://localhost:5000` |
 
 ---
 
