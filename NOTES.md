@@ -195,7 +195,7 @@ Next.js treats certain filenames as special within any route segment:
 | `not-found.tsx` | Rendered when `notFound()` is called or the route doesn't exist |
 | `route.ts` | API endpoint (no React, returns `Response`) |
 
-`loading.tsx` and `error.tsx` are colocated with `page.tsx` so the boundary scope is clear.
+`loading.tsx` wraps the entire route in a `<Suspense>` automatically. `error.tsx` wraps it in an `<ErrorBoundary>`. Both are colocated with `page.tsx` so the boundary scope is clear.
 
 ---
 
@@ -213,7 +213,7 @@ const ProductsPage = async ({ searchParams }) => {
     <main>
       <Header />
       <Suspense fallback={<ProductsSkeleton />}>
-        <ProductsSection query={q} page={page} />
+        <ProductsSection query={q} page={page} />   {/* ← fetches data */}
       </Suspense>
     </main>
   )
@@ -221,45 +221,48 @@ const ProductsPage = async ({ searchParams }) => {
 
 // _components/products-section.tsx — async Server Component
 const ProductsSection = async ({ query, page }: Props) => {
-  const data = await getProducts(page)
+  const data = await getProducts(page)   // waits here, not in page.tsx
   return <ProductsGrid products={data.products} />
 }
 ```
 
 **Why it matters:** the user sees the header and skeleton immediately. The products stream in when ready. Without this, the entire page waits on the API.
 
-**With `useTransition`:** when `router.push()` is called inside `startTransition`, React keeps the current tree visible (at `opacity-40` via `ResultsFade`) while the new data resolves. The `<Suspense>` fallback only fires on the initial load — subsequent navigations defer rendering without a flash.
+**Interaction with `useTransition`:** when `router.push()` is called inside `startTransition`, React keeps the current tree visible (at `opacity-40` via `ResultsFade`) while the new `ProductsSection` resolves. The `<Suspense>` fallback only appears on the initial load, not on subsequent navigations — this is correct and intentional.
 
 ---
 
 ## React Context — sharing state between Server Component siblings
 
-Client Components that are siblings inside a Server Component cannot share state via props. Solution: a thin Client Component provider wraps both siblings and exposes state via context.
+Client Components that are siblings inside a Server Component cannot share state via props (the Server Component is the parent and can't hold client state). Solution: a thin Client Component provider wraps both siblings and exposes state via context.
 
 ```
 page.tsx (Server Component)
 └── SearchProvider (Client — holds useTransition + debounce)
-    ├── SearchInput  (Client — calls search() from context)
-    └── ResultsFade  (Client — reads isPending from context)
-        └── ProductsSection (Server — passed as children, still runs on server)
+    ├── SearchInput (Client — calls search() from context)
+    └── ResultsFade (Client — reads isPending from context)
+        └── ProductsSection (Server — children passed through)
 ```
 
+Key points:
+- Server Components can be passed as `children` to a Client Component — they still run on the server
 - `useTransition` in the provider gives `isPending` while `router.push()` navigates
-- 300 ms debounce via `useRef<ReturnType<typeof setTimeout> | undefined>` prevents a request on every keystroke
-- Server Components can be passed as `children` to Client Components — they still run on the server
+- A 300 ms debounce via `useRef<ReturnType<typeof setTimeout> | undefined>` prevents a request on every keystroke
 
 ---
 
 ## Tailwind CSS v4 — CSS-first configuration
 
-Tailwind v4 removes `tailwind.config.ts` and the separate PostCSS entry. Configuration moves into CSS.
+Tailwind v4 removes `tailwind.config.ts` and the separate PostCSS plugin. Configuration moves entirely into CSS.
 
 **Before (v3):**
 ```js
 // tailwind.config.ts
 export default { content: ['./app/**/*.{ts,tsx}'], theme: { extend: {} } }
+
 // postcss.config.mjs
 export default { plugins: { tailwindcss: {}, autoprefixer: {} } }
+
 // globals.css
 @tailwind base;
 @tailwind components;

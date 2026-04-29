@@ -113,7 +113,8 @@ Docker Compose overrides `appsettings.json` via `ConnectionStrings__DefaultConne
 
 | Port | Service |
 |------|---------|
-| 5000 | ASP.NET Core API |
+| 3000 | Next.js frontend |
+| 5000 | Nginx load balancer (API entry point) |
 | 1433 | SQL Server (TDS — not HTTP) |
 | 6379 | Redis |
 

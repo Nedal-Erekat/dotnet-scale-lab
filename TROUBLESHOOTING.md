@@ -4,6 +4,51 @@ Problems encountered during development, with root cause and fix. Add new entrie
 
 ---
 
+## [2026-04-29] Next.js build — `useRef<T>()` type error in React 19
+
+**Symptom**
+```
+Type error: Expected 1 arguments, but got 0.
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+```
+
+**Root cause**
+React 19 tightened the `useRef` overload signatures. Calling `useRef<T>()` with no initial value is only valid if `undefined` is included in the type (`T | undefined`). Previously React accepted `useRef<T>()` as shorthand for "uninitialized ref", but the types now require you to be explicit.
+
+**Fix**
+```ts
+// Before (fails in React 19)
+const timer = useRef<ReturnType<typeof setTimeout>>()
+
+// After
+const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+```
+
+---
+
+## [2026-04-29] TypeScript — `export default const` is invalid syntax
+
+**Symptom**
+```
+'const' declarations can only be declared inside a block.
+```
+
+**Root cause**
+`export default const Foo = ...` is not valid JavaScript or TypeScript. You can `export default` a value but not a `const` declaration inline.
+
+**Fix**
+Declare and export on separate lines:
+```ts
+// Bad
+export default const Foo = () => <div />
+
+// Good
+const Foo = () => <div />
+export default Foo
+```
+
+---
+
 ## [2026-04-23] API crashes — "There is already an object named 'Products' in the database"
 
 **Symptom**
