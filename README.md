@@ -2,7 +2,7 @@
 
 A self-directed lab for practising high-performance backend patterns in ASP.NET Core 9. Each iteration adds a new scalability technique on top of the same product catalogue domain.
 
-**Current iteration:** Nginx load balancer + 3 web-api replicas + Next.js 15 frontend
+**Current iteration:** Nginx load balancer + 3 web-api replicas + Next.js 16 frontend
 
 ## Tech stack
 
@@ -14,7 +14,7 @@ A self-directed lab for practising high-performance backend patterns in ASP.NET 
 | Cache | Redis via `IDistributedCache` + StackExchange.Redis |
 | Full-text search | SQL Server FTS + `EF.Functions.Contains` |
 | Load balancer | Nginx (round-robin across 3 replicas) |
-| Frontend | Next.js 15 (App Router, Server Components) |
+| Frontend | Next.js 16 (App Router, Server Components, Suspense streaming) |
 | Fake data | Bogus |
 | Containers | Docker Compose |
 
@@ -40,9 +40,16 @@ dotnet-scale-lab/
 │   ├── Controllers/ProductsController.cs
 │   ├── Program.cs
 │   └── appsettings.json
-├── scalelab-frontend/                      ← Next.js 15 App Router
+├── scalelab-frontend/                      ← Next.js 16 App Router
 │   ├── app/
-│   ├── lib/
+│   │   ├── _components/                ← Server + Client Components
+│   │   ├── api/health/route.ts         ← health check endpoint
+│   │   ├── error.tsx                   ← error boundary
+│   │   ├── loading.tsx                 ← page-level skeleton
+│   │   ├── not-found.tsx
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── lib/                            ← API client, types, search context
 │   └── Dockerfile
 ├── nginx.conf
 ├── Dockerfile
@@ -195,6 +202,17 @@ k6 run -e BASE_URL=https://<your-codespace>-5000.app.github.dev tests/stress-tes
 |--------|-----------|---------|
 | `http_req_duration p(95)` | < 500 ms | 95% of requests complete within 500 ms |
 | `http_req_failed rate` | < 1% | Fewer than 1% of requests error |
+
+## CI
+
+GitHub Actions runs on every push and pull request to `main`:
+
+| Job | Steps |
+|-----|-------|
+| `backend` | .NET restore → build (Release) → validate docker-compose config |
+| `frontend` | Node 22 install → type-check (`tsc --noEmit`) → `next build` |
+
+Both jobs run in parallel. A PR is only safe to merge when both pass.
 
 ## Reference docs
 

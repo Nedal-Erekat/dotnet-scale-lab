@@ -182,6 +182,106 @@ The environment variable `ConnectionStrings__DefaultConnection` (double undersco
 
 ---
 
+## Next.js App Router — special file conventions
+
+Next.js treats certain filenames as special within any route segment:
+
+| File | Purpose |
+|------|---------|
+| `page.tsx` | The UI for the route |
+| `layout.tsx` | Shared shell — persists across navigations |
+| `loading.tsx` | Automatic Suspense boundary shown while the page loads |
+| `error.tsx` | Error boundary — must be `'use client'`; receives `error` + `reset` props |
+| `not-found.tsx` | Rendered when `notFound()` is called or the route doesn't exist |
+| `route.ts` | API endpoint (no React, returns `Response`) |
+
+`loading.tsx` wraps the entire route in a `<Suspense>` automatically. `error.tsx` wraps it in an `<ErrorBoundary>`. Both are colocated with `page.tsx` so the boundary scope is clear.
+
+---
+
+## Next.js App Router — Suspense streaming
+
+Suspense streaming lets you send the page shell to the browser immediately and stream in slow sections as they resolve — instead of blocking the entire response on the slowest fetch.
+
+**Pattern:** extract the data-fetching code into a separate async Server Component, then wrap it in `<Suspense>` with a skeleton fallback.
+
+```tsx
+// page.tsx — shell renders instantly, no data fetch here
+const ProductsPage = async ({ searchParams }) => {
+  const { q, page } = await searchParams
+  return (
+    <main>
+      <Header />
+      <Suspense fallback={<ProductsSkeleton />}>
+        <ProductsSection query={q} page={page} />   {/* ← fetches data */}
+      </Suspense>
+    </main>
+  )
+}
+
+// _components/products-section.tsx — async Server Component
+const ProductsSection = async ({ query, page }: Props) => {
+  const data = await getProducts(page)   // waits here, not in page.tsx
+  return <ProductsGrid products={data.products} />
+}
+```
+
+**Why it matters:** the user sees the header and skeleton immediately. The products stream in when ready. Without this, the entire page waits on the API.
+
+**Interaction with `useTransition`:** when `router.push()` is called inside `startTransition`, React keeps the current tree visible (at `opacity-40` via `ResultsFade`) while the new `ProductsSection` resolves. The `<Suspense>` fallback only appears on the initial load, not on subsequent navigations — this is correct and intentional.
+
+---
+
+## React Context — sharing state between Server Component siblings
+
+Client Components that are siblings inside a Server Component cannot share state via props (the Server Component is the parent and can't hold client state). Solution: a thin Client Component provider wraps both siblings and exposes state via context.
+
+```
+page.tsx (Server Component)
+└── SearchProvider (Client — holds useTransition + debounce)
+    ├── SearchInput (Client — calls search() from context)
+    └── ResultsFade (Client — reads isPending from context)
+        └── ProductsSection (Server — children passed through)
+```
+
+Key points:
+- Server Components can be passed as `children` to a Client Component — they still run on the server
+- `useTransition` in the provider gives `isPending` while `router.push()` navigates
+- A 300 ms debounce via `useRef<ReturnType<typeof setTimeout> | undefined>` prevents a request on every keystroke
+
+---
+
+## Tailwind CSS v4 — CSS-first configuration
+
+Tailwind v4 removes `tailwind.config.ts` and the separate PostCSS plugin. Configuration moves entirely into CSS.
+
+**Before (v3):**
+```js
+// tailwind.config.ts
+export default { content: ['./app/**/*.{ts,tsx}'], theme: { extend: {} } }
+
+// postcss.config.mjs
+export default { plugins: { tailwindcss: {}, autoprefixer: {} } }
+
+// globals.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+**After (v4):**
+```js
+// postcss.config.mjs
+export default { plugins: { '@tailwindcss/postcss': {} } }
+
+// globals.css
+@import "tailwindcss";
+```
+
+Content detection is automatic (scans all non-ignored files). Autoprefixing is built in. Custom theme overrides go in CSS using `@theme {}`.
+
+---
+
 ## SQL Server — TrustServerCertificate
 
 SQL Server 2022 enforces encrypted connections by default and uses a self-signed certificate inside Docker. Without `TrustServerCertificate=True` in the connection string the client rejects the certificate and the connection fails.
