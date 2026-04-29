@@ -273,12 +273,92 @@ export default { plugins: { tailwindcss: {}, autoprefixer: {} } }
 ```js
 // postcss.config.mjs
 export default { plugins: { '@tailwindcss/postcss': {} } }
-
 // globals.css
 @import "tailwindcss";
 ```
 
-Content detection is automatic (scans all non-ignored files). Autoprefixing is built in. Custom theme overrides go in CSS using `@theme {}`.
+Content detection is automatic. Autoprefixing is built in. Custom theme overrides go in CSS using `@theme {}`.
+
+---
+
+## YARP — replacing Nginx with a .NET reverse proxy
+
+YARP (Yet Another Reverse Proxy) is a .NET library (`Yarp.ReverseProxy`) that turns an ASP.NET Core app into a configurable reverse proxy. It replaces external tools like Nginx when you want the proxy to live inside the .NET ecosystem.
+
+**Minimal setup (`Program.cs`):**
+```csharp
+builder.Services
+    .AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+app.MapReverseProxy();
+```
+
+**Configuration (`appsettings.json`):**
+```json
+{
+  "ReverseProxy": {
+    "Routes": {
+      "api-route": {
+        "ClusterId": "web-api",
+        "Match": { "Path": "{**catch-all}" },
+        "Transforms": [{ "RequestHeaderOriginalHost": "true" }]
+      }
+    },
+    "Clusters": {
+      "web-api": {
+        "LoadBalancingPolicy": "RoundRobin",
+        "HttpClient": { "MaxConnectionsPerServer": 32 },
+        "Destinations": {
+          "api": { "Address": "http://web-api:8080" }
+        }
+      }
+    }
+  }
+}
+```
+
+**Key concepts:**
+- **Route** — matches incoming requests by path, host, headers, query string, or method
+- **Cluster** — a named group of destination addresses; YARP picks one per request using the chosen policy
+- **LoadBalancingPolicy** — `RoundRobin`, `LeastRequests`, `Random`, `PowerOfTwoChoices`
+- **Transforms** — rewrite requests/responses on the fly (headers, path, query string)
+
+**YARP vs Nginx in this project:**
+
+| Concern | Nginx | YARP |
+|---------|-------|------|
+| Config format | `nginx.conf` | `appsettings.json` |
+| Runtime changes | Requires reload | Hot-reload via `IOptionsMonitor` |
+| Custom logic | Lua modules | C# middleware / transforms |
+| Health checks | `proxy_next_upstream` | Built-in active + passive health checks |
+| Deployment | Separate container | Same .NET ecosystem, one Dockerfile pattern |
+
+**Load distribution with Docker Compose scaling:**
+When `--scale web-api=3` (or `deploy.replicas: 3`) is used, Docker's internal virtual IP for the `web-api` hostname distributes connections across all replicas at the network layer. A single YARP destination of `http://web-api:8080` is equivalent to Nginx's `server web-api:8080` upstream entry — Docker handles the round-robin below YARP.
+
+---
+
+## Docker Compose — `deploy.replicas` for automatic scaling
+
+Setting the replica count inside `docker-compose.yml` removes the need for the `--scale` flag:
+
+```yaml
+web-api:
+  build: .
+  deploy:
+    replicas: 3
+```
+
+```bash
+# Before — replica count specified at runtime
+docker-compose up --build --scale web-api=3
+
+# After — replica count baked into the compose file
+docker-compose up --build
+```
+
+**Requirements:** Docker Compose v2+ (shipped with Docker Desktop). The `deploy` key is ignored in Compose v1. Services with `deploy.replicas > 1` must not bind host ports — only the gateway/load balancer should expose ports externally.
 
 ---
 

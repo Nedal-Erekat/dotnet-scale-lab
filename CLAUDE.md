@@ -10,7 +10,7 @@ It gives Claude the full project context so you never have to re-explain it.
 A self-directed lab for practising high-performance backend patterns in ASP.NET Core 9.
 The goal is to build on the same product-catalogue domain, adding one scalability technique per iteration.
 
-**Current iteration:** Nginx load balancer + 3 web-api replicas + Next.js 16 frontend
+**Current iteration:** YARP gateway + 3 web-api replicas + Next.js 16 frontend
 
 ---
 
@@ -23,7 +23,7 @@ The goal is to build on the same product-catalogue domain, adding one scalabilit
 | Database | SQL Server 2022 |
 | Cache | Redis via `IDistributedCache` + StackExchange.Redis |
 | Full-text search | SQL Server FTS + `EF.Functions.Contains` |
-| Load balancer | Nginx (round-robin across 3 replicas) |
+| Gateway | YARP reverse proxy (`ScaleLab.Gateway`, round-robin across 3 replicas) |
 | Frontend | Next.js 16 (App Router, Suspense streaming, Tailwind CSS v4) |
 | Fake data | Bogus |
 | Containers | Docker Compose |
@@ -52,6 +52,10 @@ dotnet-scale-lab/
 │   ├── Controllers/ProductsController.cs
 │   ├── Program.cs
 │   └── appsettings.json
+├── ScaleLab.Gateway/                       ← YARP reverse proxy (replaces Nginx)
+│   ├── Program.cs
+│   ├── appsettings.json
+│   └── Dockerfile
 ├── scalelab-frontend/                      ← Next.js 16 App Router
 │   ├── app/
 │   │   ├── _components/                ← Server + Client Components
@@ -60,7 +64,6 @@ dotnet-scale-lab/
 │   │   ├── layout.tsx / page.tsx
 │   ├── lib/                            ← api.ts, types.ts, search-context.tsx
 │   └── Dockerfile
-├── nginx.conf
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -91,7 +94,7 @@ dotnet-scale-lab/
 | Client boundary | Push `'use client'` as deep as possible; keep data-fetching in Server Components |
 | Streaming | Data-fetching components are async Server Components wrapped in `<Suspense>` |
 | Error handling | `lib/api.ts` throws on non-ok responses; `error.tsx` catches them |
-| Env var | `INTERNAL_API_URL` — set to `http://load-balancer` in Docker, fallback `http://localhost:5000` |
+| Env var | `INTERNAL_API_URL` — set to `http://gateway` in Docker, fallback `http://localhost:5000` |
 
 ---
 
