@@ -8,7 +8,9 @@
       "Bash(node -e \"const p=require\\('./node_modules/typescript/package.json'\\); console.log\\('typescript:', p.version\\)\")",
       "Bash(dotnet restore *)",
       "Bash(del \"c:\\\\Users\\\\NidalErekat\\\\Documents\\\\asp.net\\\\dotnet-scale-lab\\\\nginx.conf\")",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(dotnet build *)",
+      "PowerShell(cd \"c:\\\\Users\\\\NidalErekat\\\\Documents\\\\asp.net\\\\dotnet-scale-lab\"; docker run --rm -v \"${PWD}:/src\" -w /src mcr.microsoft.com/dotnet/sdk:9.0 dotnet test ScaleLab.Tests/ScaleLab.Tests.csproj -c Release --logger \"console;verbosity=normal\" 2>&1)"
     ]
   }
 }
