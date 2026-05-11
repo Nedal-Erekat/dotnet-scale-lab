@@ -1,0 +1,36 @@
+name: Backend Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ScaleLab.**/**'
+      - '.github/workflows/test-backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ScaleLab.**/**'
+      - '.github/workflows/test-backend.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-restore --no-build -c Release

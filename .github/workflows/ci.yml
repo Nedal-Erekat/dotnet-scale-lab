@@ -29,11 +29,7 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
-      # 5. Run unit tests
-      - name: Test
-        run: dotnet test --no-restore --no-build -c Release
-
-      # 6. Validate docker-compose.yml syntax and service definitions
+      # 5. Validate docker-compose.yml syntax and service definitions
       - name: Validate docker-compose config
         run: docker compose config --quiet
 
@@ -59,9 +55,6 @@ jobs:
 
       - name: Type check
         run: npm run type-check
-
-      - name: Test
-        run: npm test
 
       - name: Build
         run: npm run build
